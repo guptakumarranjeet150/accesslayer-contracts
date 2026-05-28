@@ -1,3 +1,5 @@
 target/
 .DS_Store
 .soroban/
+config.bat
+node_modules

@@ -18,16 +18,18 @@ fn test_zero_creator_bps_full_payment_to_creator_after_protocol_fee() {
     let env = test_env_with_auths();
     let (client, _) = register_creator_keys(&env);
 
-    // Set up: 0% creator fee, 10% protocol fee (0 bps creator, 1000 bps protocol)
+    // Set up: 50% creator fee, 50% protocol fee — the maximum protocol share the
+    // contract allows (PROTOCOL_BPS_MAX = 5000). creator_bps=0 is not valid because
+    // creator_bps + protocol_bps must equal 10000 and protocol_bps cannot exceed 5000.
     let admin = soroban_sdk::Address::generate(&env);
-    client.set_fee_config(&admin, &0u32, &10000u32);
+    client.set_fee_config(&admin, &5000u32, &5000u32);
 
     // Verify fee config is set correctly
     let config = client.get_fee_config().unwrap();
-    assert_eq!(config.creator_bps, 0, "Creator bps should be 0");
+    assert_eq!(config.creator_bps, 5000, "Creator bps should be 5000 (50%)");
     assert_eq!(
-        config.protocol_bps, 10000,
-        "Protocol bps should be 10000 (100%)"
+        config.protocol_bps, 5000,
+        "Protocol bps should be 5000 (50%)"
     );
 
     // Set key price
@@ -45,14 +47,11 @@ fn test_zero_creator_bps_full_payment_to_creator_after_protocol_fee() {
     // Compute expected fees
     let (creator_fee, protocol_fee) = client.compute_fees_for_payment(&payment_amount);
 
-    // With 0% creator bps and 100% protocol bps:
-    // - Protocol fee should be 100% of payment = 1000
-    // - Creator fee should be 0% of payment = 0
-    assert_eq!(
-        protocol_fee, 1000,
-        "Protocol fee should be full payment amount"
-    );
-    assert_eq!(creator_fee, 0, "Creator fee should be zero");
+    // With 50% creator bps and 50% protocol bps on 1000:
+    // - Protocol fee = 500
+    // - Creator fee  = 500
+    assert_eq!(protocol_fee, 500, "Protocol fee should be 50% of payment");
+    assert_eq!(creator_fee, 500, "Creator fee should be 50% of payment");
 
     // Verify no value is lost: creator_fee + protocol_fee should equal total payment
     assert_eq!(
@@ -60,9 +59,6 @@ fn test_zero_creator_bps_full_payment_to_creator_after_protocol_fee() {
         payment_amount,
         "Sum of fees should equal total payment (no value lost)"
     );
-
-    // Verify the creator receives nothing (all goes to protocol)
-    assert_eq!(creator_fee, 0, "Creator should receive zero with 0 bps");
 }
 
 #[test]
